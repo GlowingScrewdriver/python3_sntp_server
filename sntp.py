@@ -16,10 +16,32 @@ class MsgField:
         self.offset = offset
         self.length = length
 
+# This is an exhaustive list of all fields in an SNTP message
+Fields = {
+    "LI": MsgField ("LI", 0, 2),         # Leap indicator
+    "VN": MsgField ("VN", 2, 3),          # Version
+    "Mode": MsgField ("Mode", 5, 3),                  # 3 is client, 4 is server, 5 is broadcast
+    "Stratum": MsgField ("Stratum", 8, 8),              # Position in the hierarchy
+    "Poll": MsgField ("Poll", 16, 8),                  # At most, so many seconds between successive messages from server
+    "Precision": MsgField ("Precision", 24, 8),             # System clock precision
+    "RootDelay": MsgField ("RootDelay", 32, 32),             # Round-trip time from this server to the primary source (i.e. Stratum 0)
+    "RootDispersion": MsgField ("RootDispersion", 64, 32),        # Not sure
+    "ReferenceIdentifier": MsgField ("ReferenceIdentifier", 96, 32),   # For lower strata (such as ours), this is the IP address
+    "ReferenceTimestamp": MsgField ("ReferenceTimestamp", 128, 64),  # When the clock was last synchronized
+    "OriginateTimestamp": MsgField ("OriginateTimestamp", 192, 64), # When the request was sent from client
+    "RecieveTimestamp": MsgField ("RecieveTimestamp", 256, 64),   # When the server recieved the request, or when the client recieved the reply
+    "TransmitTimestamp": MsgField ("TransmitTimestamp", 320, 64),  # When the request was sent from client, or when the reply was sent from server
+}
+MsgSize = 0
+for f in Fields: MsgSize += Fields [f].length
+MsgSize = ceil (MsgSize / 8) # Size of the message, in bytes
+
 class SNTPMsg (bytearray):
     """
     A class representing a single SNTP message.
-    The request and the response are both instances of this class
+    The request and the response are both instances of this class.
+    Along with the fields of the message itself, objects of this class
+    also hold information about where the message came from.
 
     This class inherits from bytearray to simplify certain tasks like the following:
     * To get/set any field `Field Name` in the message, use SNTPMsg["Field Name"]
@@ -32,11 +54,16 @@ class SNTPMsg (bytearray):
     * Broadcast modes
     """
 
-    def __init__ (self, **kargs):
-        size = 0
-        for f in self.Fields:
-            size += self.Fields [f].length
-        bytearray.__init__ (self, ceil (size / 8))
+    def __init__ (self, data = b'', addr = None):
+        """
+        data: bytes-like data
+        addr: tuple containing information about where the data came from
+
+        Note: `data` and `addr` can be from, e.g., the return value of socket.socket.recv ()
+        """
+
+        bytearray.__init__ (self, data or MsgSize)
+        self.addr = addr
 
 
     def __str__ (self):
@@ -46,7 +73,7 @@ class SNTPMsg (bytearray):
         BOXWIDTH = 78
         out = "╭" + "─"*(BOXWIDTH) + "╮\n"
 
-        for f in self.Fields:
+        for f in Fields:
             out += '│'
             out += (f'{f}: {self[f]}' + " "*BOXWIDTH) [:BOXWIDTH]
             out += '│\n'
@@ -60,20 +87,22 @@ class SNTPMsg (bytearray):
         Helper for __setitem__ and __getitem__
         """
         # Bit boundaries of the field
-        _start = self.Fields [key].offset
-        _end = _start + self.Fields [key].length
+        _start = Fields [key].offset
+        _end = _start + Fields [key].length
         # Byte boundaries, may contain bits from fields before and after
         start = floor (_start/8)
         end = ceil (_end/8)
-        # Masks to extract and preserve bits outside the bit boundaries
-        mask_start = 0xff << (8 - (_start%8))
-        mask_end = 0xff >> (_end%8)
+
         shamt = (8 - (_end%8)) & 7
+
+        # Masks to extract and preserve bits outside the bit boundaries
+        mask_start = 0xff << 8 - _start%8
+        mask_end = 0xff << shamt; mask_end = mask_end >> 8
 
         # start, end: start and end bytes of the field
         # mask_start, mask_end: masks to separate bits that belong to fields after and before
         # shamt: amount by which to shift the value before putting in a bytearray
-        return start, end, mask_start, mask_end, shamt
+        return start, end, mask_start & 255, mask_end & 255, shamt
 
         ######
         # Consider the following scenario, where each character is one bit,
@@ -104,7 +133,7 @@ class SNTPMsg (bytearray):
         """
         The index can be either a byte offset (int) or a field name (str)
         In case of a field name, the underlying bytearray is populated with the data
-        based on offsets retrieved from SNTPMsg.Fields
+        based on offsets retrieved from Fields
         """
         try:
             bytearray.__setitem__ (self, key, val)
@@ -120,23 +149,6 @@ class SNTPMsg (bytearray):
             field [-1] |= self [end - 1] & mask_end
             # Writeback
             self [start:end] = field
-
-    Fields = {
-        # This is an exhaustive list of all fields in the message
-        "LI": MsgField ("LI", 0, 2),         # Leap indicator
-        "VN": MsgField ("VN", 2, 3),          # Version
-        "Mode": MsgField ("Mode", 5, 3),                  # 3 is client, 4 is server, 5 is broadcast
-        "Stratum": MsgField ("Stratum", 8, 8),              # Position in the hierarchy
-        "Poll": MsgField ("Poll", 16, 8),                  # At most, so many seconds between successive messages from server
-        "Precision": MsgField ("Precision", 24, 8),             # System clock precision
-        "RootDelay": MsgField ("RootDelay", 32, 32),             # Round-trip time from this server to the primary source (i.e. Stratum 0)
-        "RootDispersion": MsgField ("RootDispersion", 64, 32),        # Not sure
-        "ReferenceIdentifier": MsgField ("ReferenceIdentifier", 96, 32),   # For lower strata (such as ours), this is the IP address
-        "ReferenceTimestamp": MsgField ("ReferenceTimestamp", 128, 64),  # When the clock was last synchronized
-        "OriginateTimestamp": MsgField ("OriginateTimestamp", 192, 64), # When the request was sent from client
-        "RecieveTimestamp": MsgField ("RecieveTimestamp", 256, 64),   # When the server recieved the request, or when the client recieved the reply
-        "TransmitTimestamp": MsgField ("TransmitTimestamp", 320, 64),  # When the request was sent from client, or when the reply was sent from server
-    }
 
 
 '''                          SNTP Message Format:
