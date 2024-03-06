@@ -1,31 +1,45 @@
-import struct
-import datetime
+import time
 
-def human_readable_to_ntp_64bit(human_readable_time):
-    # NTP epoch starts on January 1, 1900
-    ntp_epoch = datetime.datetime(1900, 1, 1, 0, 0, 0)
+# Higher 64 bits are the difference between Epoch and 1900 in seconds
+NTP_OFFSET = (-int(time.mktime ((1900, 1, 1, 0, 0, 0, 0, 0, 0)))) << 32
 
-    
+def posix_to_ntp (timestamp: float):
+    """
+    Convert a POSIX timestamp (float) to an NTP timestamp (64-bit fixed-point)
+    """
+
     # Convert human-readable time to datetime object
-    dt_object = datetime.datetime.strptime(human_readable_time, '%Y-%m-%d %H:%M:%S')
+    timestamp_fixed_whole = int (timestamp)
+    timestamp_fixed_fract = int (timestamp%1 * (2**32))
+    timestamp_fixed = (timestamp_fixed_whole << 32) + timestamp_fixed_fract
 
-    
     # Calculate the time difference from NTP epoch
-    time_difference = dt_object - ntp_epoch
-    
-    # Calculate seconds and fractional seconds
-    seconds = int(time_difference.total_seconds())
-    #fractional_seconds = int((time_difference.microseconds / 1e6) * (2**32))
-    
-    # Combine seconds and fractional seconds into a 64-bit integer
-    return seconds
-    ntp_64bit = (seconds << 32) #| fractional_seconds
-    
-    return ntp_64bit
+    timestamp_fixed_ntp = timestamp_fixed + NTP_OFFSET
+    return timestamp_fixed_ntp
 
-# Example: Convert human-readable time to NTP 64-bit integer
-human_readable_time = "2022-03-05 12:00:00"
-ntp_64bit = human_readable_to_ntp_64bit(human_readable_time)
 
-print("Human-Readable Time:", human_readable_time)
-print("NTP 64-bit Integer:", ntp_64bit)
+def ntp_to_posix (timestamp: int):
+    """
+    Convert an NTP timestamp (64-bit fixed-point) to a POSIX timestamp (float)
+    """
+
+    timestamp_epoch = timestamp - NTP_OFFSET
+    timestamp_epoch_whole = timestamp_epoch >> 32
+    timestamp_epoch_fract = timestamp_epoch - (timestamp_epoch_whole << 32)
+
+    timestamp_epoch_float = timestamp_epoch_whole + timestamp_epoch_fract / 2**32
+    return timestamp_epoch_float
+
+if __name__ == "__main__":
+    # The following is just a proof-of-concept procedure to make
+    # sure it's working fine. Run this file directly to test it.
+    # Takes the current system time (float), converts to NTP timestamp, and
+    # back to system time (float).
+
+    t = time.time ()
+    nt = epoch_to_ntp (t)
+    ut = ntp_to_epoch (nt)
+
+    print ("Original time: ", t)
+    print ("Processed time: ", ut)
+    print (time.ctime (ut))
