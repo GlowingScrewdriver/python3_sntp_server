@@ -4,18 +4,11 @@ import win32api
 import conversions
 
 if __name__ == "__main__":
-    ntp_servers = {
-        "time.google.com": ("time.google.com", 123),
-        "us.pool.ntp.org": ("us.pool.ntp.org", 123),  # Example NTP server for the US region
-        "europe.pool.ntp.org": ("europe.pool.ntp.org", 123),  # Example NTP server for the Europe region
-        # Add more NTP servers for different regions/time zones as needed
-    }
 
-    # Specify the desired NTP server here
-    selected_ntp_server = "time.google.com"
-    server_addr = ntp_servers[selected_ntp_server]
+    server_addr = ("time.google.com", 123)
 
-# the below function sets the clock of the local system
+
+    # the below function sets the clock of the local system
     def setsystime(time_str):
         '''takes time in string and sets it to the locale system ->use time.ctime()'''
         ntp_dt = datetime.strptime(time_str, "%a %b %d %H:%M:%S %Y")
@@ -34,8 +27,8 @@ if __name__ == "__main__":
         hserver_req["VN"] = 4
         hserver_req["Mode"] = 3  # 3-> client coz its sending request to (hserver)higher server
         hserver_req["Stratum"] = 15  # 2-15 -> secondary reference server
-        hserver_req["OriginateTimestamp"] = conversions.posix_to_ntp(time.time()) # time when the message departs
-        hserver_req["TransmitTimestamp"] = conversions.posix_to_ntp(time.time()) # time when the message departs
+        hserver_req["OriginateTimestamp"] = conversions.posix_to_ntp(time.time())  # time when the message departs
+        hserver_req["TransmitTimestamp"] = conversions.posix_to_ntp(time.time())  # time when the message departs
 
         c_sock.sendto(hserver_req, server_addr)
         hserver_res, addr = c_sock.recvfrom(48)
@@ -53,25 +46,14 @@ if __name__ == "__main__":
                 t2 = hserver_res["RecieveTimestamp"]
                 t3 = hserver_res["TransmitTimestamp"]
                 t4 = conversions.posix_to_ntp(time.time())
-                # print(time.ctime(conversions.ntp_to_posix(t1)))
-                # print(time.ctime(conversions.ntp_to_posix(t2)))
-                # print(time.ctime(conversions.ntp_to_posix(t3)))
-                # print(time.ctime(conversions.ntp_to_posix(t4)))
-
-                # print(f"t4:{t4},{time.ctime(conversions.ntp_to_posix(t4))}")
-                # d is the rtd 
+                # d is the round trip delay
                 d = (t4 - t1) - (t3 - t2)
                 # t is the clock offset
                 t = ((t2 - t1) + (t3 - t4)) / 2
 
-                # the below transmit time is the request one same as local time
-                accurate_time = hserver_req["TransmitTimestamp"] + int(t) -int((d / 2))
-                ist_accurate_time = conversions.ntp_to_posix(accurate_time) + (5 * 3600) + (30 * 60)
-                print(ist_accurate_time,accurate_time)
+                # the below transmit time is same as client local time
+                accurate_time = (hserver_req["TransmitTimestamp"] + int(t)) - int((d / 2))
+                ist_accurate_time = conversions.ntp_to_posix(accurate_time) + (5 * 3600) + (21 * 60) + 10
 
-                print(f"accurate time : {time.ctime(conversions.ntp_to_posix(accurate_time))},current time {time.ctime()}")
-                print(f"the supposed ist time {time.ctime(ist_accurate_time)}")
-                print(f"Transmit time ins response {time.ctime(conversions.ntp_to_posix(t3))}")
-
-                # setsystime(time.ctime(conversions.ntp_to_posix(accurate_time)))
-
+                print("Time is: "+time.ctime(ist_accurate_time))
+                setsystime(time.ctime(ist_accurate_time))
