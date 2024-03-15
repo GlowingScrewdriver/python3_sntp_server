@@ -1,12 +1,13 @@
 import socket, sntp, time
 from _datetime import datetime, timedelta
-import win32api
+#import win32api
 import conversions
 
-if __name__ == "__main__":
+sync_time = 0 # Last synchronization time, NTP timestamp
+
+def set_sntp_time ():
 
     server_addr = ("time.google.com", 123)
-
 
     # the below function sets the clock of the local system
     def setsystime(time_str):
@@ -53,7 +54,15 @@ if __name__ == "__main__":
 
                 # the below transmit time is same as client local time
                 accurate_time = (hserver_req["TransmitTimestamp"] + int(t)) - int((d / 2))
-                ist_accurate_time = conversions.ntp_to_posix(accurate_time) + (5 * 3600) + (21 * 60) + 10
+                ist_accurate_time = conversions.ntp_to_posix(accurate_time)
 
                 print("Time is: "+time.ctime(ist_accurate_time))
-                setsystime(time.ctime(ist_accurate_time))
+                time.clock_settime (0, ist_accurate_time)
+
+                global sync_time
+                sync_time = accurate_time
+
+
+if __name__ == "__main__":
+    set_sntp_time ()
+    print ("System time is corrected")

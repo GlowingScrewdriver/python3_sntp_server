@@ -2,11 +2,14 @@ import time
 
 # Higher 64 bits are the difference between Epoch and 1900 in seconds
 NTP_OFFSET = (-int(time.mktime ((1900, 1, 1, 0, 0, 0, 0, 0, 0)))) << 32
+ERR = (5 * 3600) + (21 * 60) + 10 # Emperical
 
 def posix_to_ntp (timestamp: float):
     """
     Convert a POSIX timestamp (float) to an NTP timestamp (64-bit fixed-point)
     """
+
+    timestamp -= ERR
 
     # Convert human-readable time to datetime object
     timestamp_fixed_whole = int (timestamp)
@@ -28,7 +31,7 @@ def ntp_to_posix (timestamp: int):
     timestamp_epoch_fract = timestamp_epoch - (timestamp_epoch_whole << 32)
 
     timestamp_epoch_float = timestamp_epoch_whole + timestamp_epoch_fract / 2**32
-    return timestamp_epoch_float
+    return timestamp_epoch_float + ERR
 
 if __name__ == "__main__":
     # The following is just a proof-of-concept procedure to make
@@ -37,8 +40,8 @@ if __name__ == "__main__":
     # back to system time (float).
 
     t = time.time ()
-    nt = epoch_to_ntp (t)
-    ut = ntp_to_epoch (nt)
+    nt = posix_to_ntp (t)
+    ut = ntp_to_posix (nt)
 
     print ("Original time: ", t)
     print ("Processed time: ", ut)

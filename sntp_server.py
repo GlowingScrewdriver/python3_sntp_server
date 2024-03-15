@@ -12,7 +12,7 @@ from socket import (
 class SNTPSocket (socket):
     def __init__ (self):
         socket.__init__ (self, AF_INET, SOCK_DGRAM) # UDP/IP socket
-        self.bind (("127.0.0.1", 123))              # Standard port number for SNTP
+        self.bind (("", 123))              # Standard port number for SNTP
 
 
     def recvSNTP (self):
