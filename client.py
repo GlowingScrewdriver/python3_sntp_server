@@ -1,7 +1,9 @@
 import socket, sntp, time
 from _datetime import datetime, timedelta
-#import win32api
 import conversions
+
+OS_LINUX = 'clock_settime' in dir(time) # Interoperability between OS'es
+if not OS_LINUX: import win32api
 
 sync_time = 0 # Last synchronization time, NTP timestamp
 
@@ -12,6 +14,7 @@ def set_sntp_time ():
     # the below function sets the clock of the local system
     def setsystime(time_str):
         '''takes time in string and sets it to the locale system ->use time.ctime()'''
+
         ntp_dt = datetime.strptime(time_str, "%a %b %d %H:%M:%S %Y")
         ist_dt = ntp_dt - timedelta(hours=5, minutes=30)
         time_t = (ist_dt.year, ist_dt.month, ist_dt.day,
@@ -57,7 +60,10 @@ def set_sntp_time ():
                 ist_accurate_time = conversions.ntp_to_posix(accurate_time)
 
                 print("Time is: "+time.ctime(ist_accurate_time))
-                time.clock_settime (0, ist_accurate_time)
+                if OS_LINUX: # If running on Linux
+                    time.clock_settime (0, ist_accurate_time)
+                else:        # Running on Windows
+                    setsystime(time.ctime(ist_accurate_time))
 
                 global sync_time
                 sync_time = accurate_time
