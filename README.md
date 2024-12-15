@@ -4,15 +4,15 @@ An SNTP server, implemented in Python3 as per [RFC 4330](https://www.rfc-editor.
 ## Pending tasks:
 * Implement the server and mechanism to receive/send requests/responses (socket programming)
 * Fields to be populated, at a _bare_ minimum:
-  - `ReferenceTimestamp`
-  - `OriginateTimestamp`
-  - `ReceiveTimestamp`
-  - `TransmitTimestamp`
+  - [x] `ReferenceTimestamp`
+  - [x] `OriginateTimestamp`
+  - [x] `ReceiveTimestamp`
+  - [x] `TransmitTimestamp`
 * Fields that would be nice to implement:
-  - `RootDelay`
-  - `Poll`
-  - `Precision`
-  - `ReferenceIdentifier`
+  - [ ] `RootDelay`
+  - [ ] `Poll`
+  - [ ] `Precision`
+  - [ ] `ReferenceIdentifier`
 
 Note: Each of these is a key name in an `SNTPMsg` object.
 
